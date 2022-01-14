@@ -1,0 +1,6 @@
+dgl-cu102==0.7.1
+lmdb==1.2.1
+networkx==2.5.1
+scikit-learn==0.24.2
+torch==1.9.1
+tqdm==4.62.3
