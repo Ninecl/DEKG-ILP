@@ -9,7 +9,7 @@ from utils.dgl_utils import _bfs_relational
 from utils.graph_utils import incidence_matrix, remove_nodes, serialize, get_edge_count
 
 
-def sample_neg(adj_list, edges, num_neg_samples_per_link=1, max_size=1000000, constrained_neg_prob=0):
+def sample_neg(adj_list, edges, num_neg_samples_per_link=1, max_size=1000000):
     pos_edges = edges
     neg_edges = []
 
@@ -35,16 +35,11 @@ def sample_neg(adj_list, edges, num_neg_samples_per_link=1, max_size=1000000, co
     pbar = tqdm(total=len(pos_edges))
     while len(neg_edges) < num_neg_samples_per_link * len(pos_edges):
         neg_head, neg_tail, rel = pos_edges[pbar.n % len(pos_edges)][0], pos_edges[pbar.n % len(pos_edges)][1], pos_edges[pbar.n % len(pos_edges)][2]
-        if np.random.uniform() < constrained_neg_prob:
-            if np.random.uniform() < 0.5:
-                neg_head = np.random.choice(valid_heads[rel])
-            else:
-                neg_tail = np.random.choice(valid_tails[rel])
+
+        if np.random.uniform() < 0.5:
+            neg_head = np.random.choice(n)
         else:
-            if np.random.uniform() < 0.5:
-                neg_head = np.random.choice(n)
-            else:
-                neg_tail = np.random.choice(n)
+            neg_tail = np.random.choice(n)
 
         if neg_head != neg_tail and adj_list[rel][neg_head, neg_tail] == 0:
             neg_edges.append([neg_head, neg_tail, rel])

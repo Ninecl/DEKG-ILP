@@ -29,11 +29,11 @@ def generate_subgraph_datasets(params, splits=['train', 'valid'], saved_relation
     # Sample train and valid/test links
     for split_name, split in graphs.items():
         logging.info(f"Sampling negative links for {split_name}")
-        split['pos'], split['neg'] = sample_neg(adj_list, split['triplets'], params.num_neg_samples_per_link, max_size=split['max_size'], constrained_neg_prob=params.constrained_neg_prob)
+        split['pos'], split['neg'] = sample_neg(adj_list, split['triplets'], params.num_neg_samples_per_link, max_size=split['max_size'])
 
     if testing:
         directory = os.path.join(params.main_dir, 'data/{}/'.format(params.dataset))
-        save_to_file(directory, f'neg_{params.test_file}_{params.constrained_neg_prob}.txt', graphs['test']['neg'], id2entity, id2relation)
+        save_to_file(directory, f'neg_{params.test_file}.txt', graphs['test']['neg'], id2entity, id2relation)
 
     links2subgraphs(adj_list, relation_component_table, graphs, params, max_label_value)
 

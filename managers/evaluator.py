@@ -52,7 +52,7 @@ class Evaluator():
             neg_test_triplets_path = os.path.join(self.params.main_dir, 'data/{}/neg_{}_0.txt'.format(self.params.dataset, self.data.file_name))
             with open(neg_test_triplets_path) as f:
                 neg_triplets = [line.split() for line in f.read().split('\n')[:-1]]
-            neg_file_path = os.path.join(self.params.main_dir, 'data/{}/grail_neg_{}_{}_predictions.txt'.format(self.params.dataset, self.data.file_name, self.params.constrained_neg_prob))
+            neg_file_path = os.path.join(self.params.main_dir, 'data/{}/grail_neg_{}_predictions.txt'.format(self.params.dataset, self.data.file_name))
             with open(neg_file_path, "w") as f:
                 for ([s, r, o], score) in zip(neg_triplets, neg_scores):
                     f.write('\t'.join([s, r, o, str(score)]) + '\n')
