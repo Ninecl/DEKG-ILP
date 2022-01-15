@@ -28,11 +28,11 @@ def main(params):
     train = Dataset(params.db_path, 'train_pos', 'train_neg', params.file_paths,
                     add_traspose_rels=params.add_traspose_rels,
                     num_neg_samples_per_link=params.num_neg_samples_per_link,
-                    file_name=params.train_file)
+                    file_name=params.train_file, params=params)
     valid = Dataset(params.db_path, 'valid_pos', 'valid_neg', params.file_paths,
                     add_traspose_rels=params.add_traspose_rels,
                     num_neg_samples_per_link=params.num_neg_samples_per_link,
-                    file_name=params.valid_file)
+                    file_name=params.valid_file, params=params)
 
     params.num_rels = train.num_rels
     params.aug_num_rels = train.aug_num_rels * 2
