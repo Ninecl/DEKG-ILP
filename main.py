@@ -148,6 +148,8 @@ if __name__ == '__main__':
                         help='whether to concatenate head/tail embedding with pooled graph representation')
     parser.add_argument('--has_attn', '-attn', type=bool, default=True,
                         help='whether to have attn in model or not')
+    parser.add_argument('--remove_dis_nodes', action='store_true',
+                        help='whether to remove disconnected nodes') 
     parser.add_argument('--remove_rsf', action='store_true',
                         help="ablation study of relation-specific features")
     parser.add_argument('--remove_con_loss', action='store_true',

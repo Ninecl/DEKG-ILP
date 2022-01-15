@@ -2,19 +2,7 @@ import os
 import pdb
 import logging
 import numpy as np
-from numpy.core.fromnumeric import trace
 from scipy.sparse import csc_matrix
-import matplotlib.pyplot as plt
-
-
-def plot_rel_dist(adj_list, filename):
-    rel_count = []
-    for adj in adj_list:
-        rel_count.append(adj.count_nonzero())
-
-    fig = plt.figure(figsize=(12, 8))
-    plt.plot(rel_count)
-    fig.savefig(filename, dpi=fig.dpi)
 
 
 def process_files(files, saved_relation2id=None):
@@ -71,16 +59,16 @@ def process_files(files, saved_relation2id=None):
         idx = np.argwhere(triplets['train'][:, 2] == i)
         adj_list.append(csc_matrix((np.ones(len(idx), dtype=np.uint8), (triplets['train'][:, 0][idx].squeeze(1), triplets['train'][:, 1][idx].squeeze(1))), shape=(len(entity2id), len(entity2id))))
 
-    # 构建relation-specific特征
+    # construct relation-component tables, only from train data
     num_entity = len(entity2id)
     num_relation = len(relation2id)
-    rsf_list = np.zeros((num_entity, num_relation*2))
+    relation_component_table = np.zeros((num_entity, num_relation*2))
     for h, t, r in triplets['train']:
-        rsf_list[h][r] += 1
-        rsf_list[t][r+num_relation] += 1
+        relation_component_table[h][r] += 1
+        relation_component_table[t][r+num_relation] += 1
 
 
-    return adj_list, rsf_list, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation
+    return adj_list, relation_component_table, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation
 
 
 def save_to_file(directory, file_name, triplets, id2entity, id2relation):

@@ -1,25 +1,19 @@
-from operator import sub
 from torch.utils.data import Dataset
-import timeit
 import os
 import logging
 import lmdb
 import numpy as np
 import json
-import pickle
 import dgl
 from utils.graph_utils import ssp_multigraph_to_dgl
 from utils.data_utils import process_files, save_to_file
 from .graph_sampler import *
-import pdb
 
 
 def generate_subgraph_datasets(params, splits=['train', 'valid'], saved_relation2id=None, max_label_value=None):
 
     testing = 'test' in splits
-    adj_list, rsf_list, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation = process_files(params.file_paths, saved_relation2id)
-
-    # plot_rel_dist(adj_list, os.path.join(params.main_dir, f'data/{params.dataset}/rel_dist.png'))
+    adj_list, relation_component_table, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation = process_files(params.file_paths, saved_relation2id)
 
     data_path = os.path.join(params.main_dir, f'data/{params.dataset}/relation2id.json')
     if not os.path.isdir(data_path) and not testing:
@@ -40,7 +34,7 @@ def generate_subgraph_datasets(params, splits=['train', 'valid'], saved_relation
         directory = os.path.join(params.main_dir, 'data/{}/'.format(params.dataset))
         save_to_file(directory, f'neg_{params.test_file}_{params.constrained_neg_prob}.txt', graphs['test']['neg'], id2entity, id2relation)
 
-    links2subgraphs(adj_list, rsf_list, graphs, params, max_label_value)
+    links2subgraphs(adj_list, relation_component_table, graphs, params, max_label_value)
 
 
 def get_kge_embeddings(dataset, kge_model):
@@ -57,15 +51,16 @@ def get_kge_embeddings(dataset, kge_model):
 class Dataset(Dataset):
     """Extracted, labeled, subgraph dataset -- DGL Only"""
 
-    def __init__(self, db_path, db_name_pos, db_name_neg, raw_data_paths, included_relations=None, add_traspose_rels=False, num_neg_samples_per_link=1, file_name=''):
+    def __init__(self, db_path, db_name_pos, db_name_neg, raw_data_paths, included_relations=None, add_traspose_rels=False, num_neg_samples_per_link=1, file_name='', params=None):
 
         self.main_env = lmdb.open(db_path, readonly=True, max_dbs=3, lock=False)
         self.db_pos = self.main_env.open_db(db_name_pos.encode())
         self.db_neg = self.main_env.open_db(db_name_neg.encode())
         self.num_neg_samples_per_link = num_neg_samples_per_link
         self.file_name = file_name
+        self.params = params
 
-        ssp_graph, rsf_list, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation = process_files(raw_data_paths, included_relations)
+        ssp_graph, relation_component_table, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation = process_files(raw_data_paths, included_relations)
         self.num_rels = len(ssp_graph)
 
         # Add transpose matrices to handle both directions of relations.
@@ -80,8 +75,8 @@ class Dataset(Dataset):
         self.id2entity = id2entity
         self.id2relation = id2relation
 
-        # 创建rsf特征
-        self.rsf_list = rsf_list
+        # construct relation-component table
+        self.rct = relation_component_table
 
         self.max_n_label = np.array([0, 0])
         with self.main_env.begin() as txn:
@@ -103,10 +98,10 @@ class Dataset(Dataset):
         with self.main_env.begin(db=self.db_pos) as txn:
             str_id = '{:08}'.format(index).encode('ascii')
             link_pos, nodes_pos, r_label_pos, g_label_pos, n_labels_pos, n1_conpos_pos, n1_conneg_pos, n2_conpos_pos, n2_conneg_pos = deserialize(txn.get(str_id))
-            link_rsf_pos = [self.rsf_list[i] for i in link_pos]
+            link_rct_pos = [self.rct[i] for i in link_pos]
             subgraph_pos = self._prepare_subgraphs(nodes_pos, r_label_pos, n_labels_pos)
         # 负样本数据
-        links_rsf_neg = []
+        links_rct_neg = []
         subgraphs_neg = []
         r_labels_neg = [] 
         g_labels_neg = []
@@ -118,7 +113,7 @@ class Dataset(Dataset):
             for i in range(self.num_neg_samples_per_link):
                 str_id = '{:08}'.format(index + i * (self.num_graphs_pos)).encode('ascii')
                 link_neg, nodes_neg, r_label_neg, g_label_neg, n_labels_neg, n1_conpos_neg, n1_conneg_neg, n2_conpos_neg, n2_conneg_neg = deserialize(txn.get(str_id))
-                links_rsf_neg.append([self.rsf_list[i] for i in link_neg])
+                links_rct_neg.append([self.rct[i] for i in link_neg])
                 subgraphs_neg.append(self._prepare_subgraphs(nodes_neg, r_label_neg, n_labels_neg))
                 r_labels_neg.append(r_label_neg)
                 g_labels_neg.append(g_label_neg)
@@ -127,8 +122,8 @@ class Dataset(Dataset):
                 n2_conpos_negs.append(n2_conpos_neg)
                 n2_conneg_negs.append(n2_conneg_neg)
 
-        return link_rsf_pos, subgraph_pos, g_label_pos, r_label_pos, n1_conpos_pos, n1_conneg_pos, n2_conpos_pos, n2_conneg_pos, \
-               links_rsf_neg, subgraphs_neg, g_labels_neg, r_labels_neg, n1_conpos_negs, n1_conneg_negs, n2_conpos_negs, n2_conneg_negs
+        return link_rct_pos, subgraph_pos, g_label_pos, r_label_pos, n1_conpos_pos, n1_conneg_pos, n2_conpos_pos, n2_conneg_pos, \
+               links_rct_neg, subgraphs_neg, g_labels_neg, r_labels_neg, n1_conpos_negs, n1_conneg_negs, n2_conpos_negs, n2_conneg_negs
                
 
     def __len__(self):
@@ -150,17 +145,24 @@ class Dataset(Dataset):
             subgraph.edata['type'][-1] = torch.tensor(r_label).type(torch.LongTensor)
             subgraph.edata['label'][-1] = torch.tensor(r_label).type(torch.LongTensor)
 
-        subgraph = self._prepare_features_new(subgraph, n_labels)
+        subgraph = self._prepare_features(subgraph, n_labels)
 
         return subgraph
     
 
-    def _prepare_features_new(self, subgraph, n_labels):
+    def _prepare_features(self, subgraph, n_labels):
         # One hot encode the node
         n_nodes = subgraph.number_of_nodes()
         label_feats = np.zeros((n_nodes, self.max_n_label[0] + 1 + self.max_n_label[1] + 1))
         label_feats[np.arange(n_nodes), n_labels[:, 0]] = 1
         label_feats[np.arange(n_nodes), self.max_n_label[0] + 1 + n_labels[:, 1]] = 1
+        
+        # set the embeddings of disconnected nodes to all zero
+        dis_nodes_sub = np.where(n_labels[:, 0] > self.max_n_label[0])[0]
+        dis_nodes_obj = np.where(n_labels[:, 1] > self.max_n_label[1])[0]
+        dis_nodes = np.concatenate((dis_nodes_obj, dis_nodes_sub))
+        if not self.params.remove_dis_nodes and len(dis_nodes > 0):
+            label_feats[dis_nodes] = np.zeros((len(dis_nodes), self.max_n_label[0] + 1 + self.max_n_label[1] + 1))
         
         n_feats = label_feats
         subgraph.ndata['feat'] = torch.FloatTensor(n_feats)
