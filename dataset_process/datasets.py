@@ -2,10 +2,11 @@ from torch.utils.data import Dataset
 import os
 import logging
 import lmdb
+import torch
 import numpy as np
 import json
 import dgl
-from utils.graph_utils import ssp_multigraph_to_dgl
+from utils.graph_utils import ssp_multigraph_to_dgl, deserialize
 from utils.data_utils import process_files, save_to_file
 from .graph_sampler import *
 
