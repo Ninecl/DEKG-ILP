@@ -11,7 +11,7 @@ All train and test data can be found in the `data` floder. Specifically, we trai
 
 For example, to train the model DEKG-ILP on version 1 of FB15k-237, run the following command:
 ``` python
-python train -d FB15k-237_v1 -e DEKG-ILP_FB15k-237_v1
+python main.py -d FB15k-237_v1 -e DEKG-ILP_FB15k-237_v1
 ```
 To test DEKG-ILP, run the following commands:
 ``` python
