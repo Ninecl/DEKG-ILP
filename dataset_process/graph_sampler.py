@@ -203,22 +203,21 @@ def node_label(subgraph, max_distance=1):
 
 
 def contrastive_data_generate(n, rct):
-    # 先计算平均rct是多少
+    # the average number of tripets per relation
     n_rct = rct[n]
     no_zero_idx = np.where(n_rct > 0)[0]
     n_rct_no_zero = n_rct[no_zero_idx]
     avg_rct = int(sum(n_rct_no_zero) / len(n_rct_no_zero))
     avg_rct = avg_rct if avg_rct > 1 else 1
-    # 根据平均数计算采样范围
+    # range of sample
     sample_size = avg_rct * 2 + 1
 
-    # 生成对比学习正样本数据
-    # 首先确认要更改的数据个数，根据参数指定，如果计算出来不足1则补为
+    # the number of change data
     num_no_zero = len(no_zero_idx)
     num_change = int(num_no_zero * params_.con_change_percent)
     num_change = 1 if num_change < 1 else num_change
 
-    # 正样本生成
+    # generate positive examples
     con_pos = []
     for i in range(0, params_.con_sample_num):
         change_idx = no_zero_idx[np.random.choice(np.array(range(num_no_zero)), num_change, False)]
@@ -227,10 +226,10 @@ def contrastive_data_generate(n, rct):
         pos_rct[change_idx] = change_data
         con_pos.append(pos_rct)
 
-    # 负样本生成
+    # genarate negative examplesd
     con_neg = []
     for i in range(0, params_.con_sample_num):
-        # 需要添加与删除的数据
+        # number of data to add or delate
         num_add = num_del = int(num_change / 2) if int(num_change / 2) >= 1 else 1
 
         candidate_add_idx = np.array(list(set(range(len(n_rct))) - set(no_zero_idx)))

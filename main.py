@@ -97,7 +97,7 @@ if __name__ == '__main__':
     parser.add_argument("--margin", type=float, default=10,
                         help="The margin between positive and negative samples in the max-margin loss")
     parser.add_argument("--gama", '-ga', type=float, default=0.1, 
-                        help="设置对比学习损失前面乘上的系数")   
+                        help="The parameters of the contrastive learning loss fuction")   
 
     # Data processing pipeline params
     parser.add_argument("--max_links", type=int, default=1000000,
@@ -106,10 +106,6 @@ if __name__ == '__main__':
                         help="Enclosing subgraph hop number")
     parser.add_argument("--max_nodes_per_hop", "-max_h", type=int, default=None,
                         help="if > 0, upper bound the # nodes per hop by subsampling")
-    parser.add_argument('--model_type', '-m', type=str, choices=['ssp', 'dgl'], default='dgl',
-                        help='what format to store subgraphs in for model')
-    parser.add_argument('--constrained_neg_prob', '-cn', type=float, default=0.0,
-                        help='with what probability to sample constrained heads/tails while neg sampling')
     parser.add_argument("--batch_size", type=int, default=16,
                         help="Batch size")
     parser.add_argument("--num_neg_samples_per_link", '-neg', type=int, default=1,
@@ -121,9 +117,9 @@ if __name__ == '__main__':
     parser.add_argument('--enclosing_sub_graph', '-en', type=bool, default=True,
                         help='whether to only consider enclosing subgraph')
     parser.add_argument('--con_change_percent', type=float, default=0.5,
-                        help='生成对比学习数据时，改变数据的比例')
+                        help='The radio of data that change in contrastive learning')
     parser.add_argument('--con_sample_num', '-nc', type=int, default=10,
-                        help='生成对比学习数据时，正负样本分别生成多少条')
+                        help='The number of positive and negative samples generated in contrastive learning')
 
     # Model params
     parser.add_argument("--rel_emb_dim", "-r_dim", type=int, default=32,

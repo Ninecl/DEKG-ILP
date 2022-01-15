@@ -32,25 +32,25 @@ class DEKG_ILP(nn.Module):
     def forward(self, graph_data, contrastive_data):
         (rct, g, rel_labels), (head_con_pos, head_con_neg, tail_con_pos, tail_con_neg) = graph_data, contrastive_data
 
-        #####################################
-        # 计算head实体和tail实体对应的rsf向量 #
-        #####################################
+        #----------------------------------------------------------------
+        # global semantic information
+        #----------------------------------------------------------------
 
-        # 计算头节点正确的rsf
+        # calculate the rsf of head entity
         head_rct = rct[:, 0]
         head_rct_sum = torch.sum(head_rct, dim=1).unsqueeze(1)
         head_rsf = torch.sum(head_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / head_rct_sum
 
-        # 计算尾节点正确的rsf
+        # calculate the rsf of tail entity
         tail_rct = rct[:, 1]
         tail_rct_sum = torch.sum(tail_rct, dim=1).unsqueeze(1)
         tail_rsf = torch.sum(tail_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / tail_rct_sum
 
         rsf_output = torch.sum(head_rsf * self.rsf_rel_emb(rel_labels) * tail_rsf, dim=1, keepdim=True)
 
-        #########################
-        # gnn前向传播，计算图数据 #
-        #########################
+        #----------------------------------------------------------------
+        # local topological information
+        #----------------------------------------------------------------
 
         g.ndata['h'] = self.gnn(g)
 
@@ -72,46 +72,43 @@ class DEKG_ILP(nn.Module):
 
         output = self.fc_layer(g_rep)
 
-        ###################
-        # 计算对比学习数据 #
-        ###################
+        #----------------------------------------------------------------
+        # Contrastive learning loss
+        #----------------------------------------------------------------
 
-        # 计算对比学习头节点正样本
+        # the positive examples of head entity
         head_con_pos = head_con_pos.squeeze()
-        # 第一次计算先统计一次啊dim
+        # get dim
         d0, d1, d2 = head_con_pos.shape
         head_con_pos_rct = head_con_pos.view((d0 * d1, d2))
         head_con_pos_sum = torch.sum(head_con_pos_rct, dim=1).unsqueeze(1)
         head_con_pos_rsf = torch.sum(head_con_pos_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / head_con_pos_sum
-        # 计算对比学习头节点负样本
+        # the negative examples of head entity
         head_con_neg = head_con_neg.squeeze()
-        # d0, d1, d2 = head_con_neg.shape
         head_con_neg_rct = head_con_neg.view((d0 * d1, d2))
         head_con_neg_sum = torch.sum(head_con_neg_rct, dim=1).unsqueeze(1)
         head_con_neg_rsf = torch.sum(head_con_neg_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / head_con_neg_sum
-        # 计算对比学习尾节点正样本
+        # the positive examples of tail entity
         tail_con_pos = tail_con_pos.squeeze()
-        # d0, d1, d2 = tail_con_pos.shape
         tail_con_pos_rct = tail_con_pos.view((d0 * d1, d2))
         tail_con_pos_sum = torch.sum(tail_con_pos_rct, dim=1).unsqueeze(1)
         tail_con_pos_rsf = torch.sum(tail_con_pos_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / tail_con_pos_sum
-        # 计算对比学习尾节点负样本
+        # the negative examples of head entity
         tail_con_neg = tail_con_neg.squeeze()
-        # d0, d1, d2 = tail_con_neg.shape
         tail_con_neg_rct = tail_con_neg.view((d0 * d1, d2))
         tail_con_neg_sum = torch.sum(tail_con_neg_rct, dim=1).unsqueeze(1)
         tail_con_neg_rsf = torch.sum(tail_con_neg_rct.unsqueeze(2) * self.rsf_emb.weight, dim=1) / tail_con_neg_sum
 
-        # 计算正负样本之间的距离
+        # calculate the distance between positive and negative examples
         head_rsf = head_rsf.unsqueeze(1).repeat(1, d1, 1).view((d0 * d1, self.params.rsf_dim))
         tail_rsf = tail_rsf.unsqueeze(1).repeat(1, d1, 1).view((d0 * d1, self.params.rsf_dim))
-        # 计算对比学习头节点正样本距离
+        # head positive
         con_head_pos_dis = F.pairwise_distance(head_rsf, head_con_pos_rsf, p=2)
-        # 计算对比学习头节点负样本距离
+        # head negative
         con_head_neg_dis = F.pairwise_distance(head_rsf, head_con_neg_rsf, p=2)
-        # 计算对比学习尾节点正样本距离
+        # tail positive
         con_tail_pos_dis = F.pairwise_distance(tail_rsf, tail_con_pos_rsf, p=2)
-        # 计算对比学习头节点正样本距离
+        # tail negative
         con_tail_neg_dis = F.pairwise_distance(tail_rsf, tail_con_neg_rsf, p=2)
 
         con_pos_dis = torch.cat((con_head_pos_dis, con_tail_pos_dis))
