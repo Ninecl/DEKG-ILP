@@ -8,14 +8,16 @@ import json
 import time
 
 import multiprocessing as mp
+from networkx.algorithms.link_analysis.hits_alg import hits
 import scipy.sparse as ssp
 from tqdm import tqdm
+import networkx as nx
 import torch
 import numpy as np
 import dgl
 
 from utils.graph_utils import ssp_multigraph_to_dgl, incidence_matrix
-from dataset_process.graph_sampler import get_neighbor_nodes
+from subgraph_extraction.graph_sampler import get_neighbor_nodes
 
 
 def process_files(files, saved_relation2id, add_traspose_rels):
@@ -100,8 +102,8 @@ def get_neg_samples_replacing_head_tail(test_links, adj_list, num_samples=50):
         neg_triplet = {'head': [[], 0], 'tail': [[], 0], 'rel': [[], 0]}
         neg_triplet['head'][0].append([head, tail, rel])
 
-        # num_samples_ent = num_samples if num_samples < n else n
-        num_samples_ent = num_samples
+        num_samples_ent = num_samples if num_samples < n else n
+        # num_samples_ent = num_samples
 
         while len(neg_triplet['head'][0]) < num_samples_ent:
             neg_head = head
@@ -119,8 +121,8 @@ def get_neg_samples_replacing_head_tail(test_links, adj_list, num_samples=50):
             if neg_head != neg_tail and adj_list[rel][neg_head, neg_tail] == 0:
                 neg_triplet['tail'][0].append([neg_head, neg_tail, rel])
 
-        # num_samples_rel = num_samples if num_samples < r else r
-        num_samples_rel = num_samples
+        num_samples_rel = num_samples if num_samples < r else r
+        # num_samples_rel = num_samples
 
         neg_triplet['rel'][0].append([head, tail, rel])
         while len(neg_triplet['rel'][0]) < num_samples_rel:

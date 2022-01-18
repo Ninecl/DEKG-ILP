@@ -104,7 +104,7 @@ def move_batch_to_device_dgl(batch, device):
     (links_rsf_pos, graph_pos, g_labels_pos, r_labels_pos), (n1_conpos_pos, n1_conneg_pos, n2_conpos_pos, n2_conneg_pos), \
     (links_rsf_neg, graph_neg, g_labels_neg, r_labels_neg), (n1_conpos_negs, n1_conneg_negs, n2_conpos_negs, n2_conneg_negs) = batch
 
-    # move tensor to device
+    # 将tensor都移动到device上
     links_rsf_pos = torch.LongTensor(links_rsf_pos).to(device=device)
     links_rsf_neg = torch.LongTensor(links_rsf_neg).to(device=device)
     r_labels_pos = torch.LongTensor(r_labels_pos).to(device=device)
@@ -119,7 +119,7 @@ def move_batch_to_device_dgl(batch, device):
     n1_conneg_negs = torch.LongTensor(n1_conneg_negs).to(device=device)
     n2_conpos_negs = torch.LongTensor(n2_conpos_negs).to(device=device)
     n2_conneg_negs = torch.LongTensor(n2_conneg_negs).to(device=device)
-    # move graph to device
+    # 将图移动到device上
     graph_pos = graph_pos.to(device=device)
     graph_neg = graph_neg.to(device=device)
 

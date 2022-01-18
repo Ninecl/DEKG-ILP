@@ -2,10 +2,31 @@ import os
 import pdb
 import logging
 import numpy as np
+from numpy.core.fromnumeric import trace
 from scipy.sparse import csc_matrix
+import matplotlib.pyplot as plt
+
+
+def plot_rel_dist(adj_list, filename):
+    rel_count = []
+    for adj in adj_list:
+        rel_count.append(adj.count_nonzero())
+
+    fig = plt.figure(figsize=(12, 8))
+    plt.plot(rel_count)
+    fig.savefig(filename, dpi=fig.dpi)
 
 
 def process_files(files, saved_relation2id=None):
+    """对一个数据集中的数据，读取对应内容，并生成邻接矩阵，entity2id，relation2id，id2entity，id2relation这些内容
+
+    Args:
+        files (dict): 字典，记录对应train和valid路径
+        saved_relation2id (dict, optional): 如果有提前做好的relation2id传入，则使用这个relation2id. Defaults to None.
+
+    Returns:
+        [type]: [description]
+    """
     entity2id = {}
     relation2id = {} if saved_relation2id is None else saved_relation2id
 
@@ -36,7 +57,7 @@ def process_files(files, saved_relation2id=None):
             if triplet[1] in relation2id:
                 data.append([entity2id[triplet[0]], entity2id[triplet[2]], relation2id[triplet[1]]])
             
-            # store all triplets
+            # 保存所有triplets
             all_triplets.append([entity2id[triplet[0]], entity2id[triplet[2]], relation2id[triplet[1]]])
 
         triplets[file_type] = np.array(data)
@@ -50,16 +71,16 @@ def process_files(files, saved_relation2id=None):
         idx = np.argwhere(triplets['train'][:, 2] == i)
         adj_list.append(csc_matrix((np.ones(len(idx), dtype=np.uint8), (triplets['train'][:, 0][idx].squeeze(1), triplets['train'][:, 1][idx].squeeze(1))), shape=(len(entity2id), len(entity2id))))
 
-    # construct relation-component tables, only from train data
+    # 构建relation-specific特征
     num_entity = len(entity2id)
     num_relation = len(relation2id)
-    relation_component_table = np.zeros((num_entity, num_relation*2))
+    rsf_list = np.zeros((num_entity, num_relation*2))
     for h, t, r in triplets['train']:
-        relation_component_table[h][r] += 1
-        relation_component_table[t][r+num_relation] += 1
+        rsf_list[h][r] += 1
+        rsf_list[t][r+num_relation] += 1
 
 
-    return adj_list, relation_component_table, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation
+    return adj_list, rsf_list, triplets, all_triplets, entity2id, relation2id, id2entity, id2relation
 
 
 def save_to_file(directory, file_name, triplets, id2entity, id2relation):
@@ -70,13 +91,25 @@ def save_to_file(directory, file_name, triplets, id2entity, id2relation):
 
 
 def load_raw_data(file_path):
+    """读取原始知识图谱数据, 如果有entity2id，relation2id，就直接读取，没有就重新生成
+
+    Args:
+        file_path (str): 文件路径，到文件夹，不到具体文件
+
+    Returns:
+        entity2id(dict): entity到id的映射字典
+        relation2id(dict): relation到id的映射字典
+        train_triplets(list): 对应数据集的训练集文件
+        valid_triplets(list): 对应数据集的验证集文件
+        test_triplets(list): 对应数据集的测试集文件
+    """
 
     logging.info("\nLoad raw data from {}".format(file_path))
 
     entity2id_path = os.path.join(file_path, 'entity2id.txt')
     relation2id_path = os.path.join(file_path, 'relation2id.txt')
 
-    # directly read 2id
+    # 如果已有2id，则直接读取
     if os.path.exists(entity2id_path) and os.path.exists(relation2id_path):
         print("There is existing entity2id and relation2id, loading...")
         with open(entity2id_path, 'r') as f:
@@ -95,7 +128,7 @@ def load_raw_data(file_path):
         valid_triplets, entity2id, relation2id = read_triplets2id(os.path.join(file_path, 'valid.txt'), entity2id, relation2id)
         test_triplets, entity2id, relation2id = read_triplets2id(os.path.join(file_path, 'test.txt'), entity2id, relation2id)
     
-    # re-generate 2id
+    # 否则重新生成2id文件
     else:
         print("There is no entity2id and relation2id, generating...")
         train_triplets = read_triplets(os.path.join(file_path, 'train.txt'))
@@ -125,7 +158,7 @@ def load_raw_data(file_path):
         valid_triplets = [[entity2id[triplet[0]], relation2id[triplet[1]], entity2id[triplet[2]]] for triplet in valid_triplets]
         test_triplets = [[entity2id[triplet[0]], relation2id[triplet[1]], entity2id[triplet[2]]] for triplet in test_triplets]
 
-        # save entity2id and relation2id
+        # 写entity2id和relation2id
         with open(entity2id_path, 'w') as f:
             for k, v in entity2id.items():
                 f.write('{}\t{}\n'.format(k, v))
@@ -145,6 +178,16 @@ def load_raw_data(file_path):
 
 
 def read_triplets2id(file_path, entity2id, relation2id):
+    """按路径读取文件，并转化为对应id形式三元组
+
+    Args:
+        file_path (str): 具体文件路径
+        entity2id (dict): entity到id映射字典
+        relation2id (dict): relation到id映射字典
+
+    Returns:
+        triplets(list): 已转化为对应id的知识图谱三元组list
+    """
     triplets = []
     entity_cnt = len(entity2id)
     relation_cnt = len(relation2id)
@@ -167,6 +210,13 @@ def read_triplets2id(file_path, entity2id, relation2id):
 
 
 def read_triplets(file_path):
+    """按路径读取文件，直接返回字符串形式的三元组
+
+    Args:
+        file_path (str): 具体文件路径
+    Returns:
+        triplets(list): 已转化为对应id的知识图谱三元组list
+    """
     triplets = []
 
     with open(file_path, 'r') as f:
@@ -178,6 +228,15 @@ def read_triplets(file_path):
 
 
 def count_entity_relation_set(triplets, triplet_type='hrt'):
+    """统计一组triplets中有哪些实体和关系
+
+    Args:
+        triplets (list): 一个二维列表，记录所有的triplets，triplet是(h, r, t)形式
+        hrt (str): 三元组的形式，一般为hrt或htr
+    Returns:
+        entity_set (set): 实体集合
+        relation_set (set): 关系集合
+    """
     entity_set = set()
     relation_set = set()
 
@@ -200,6 +259,16 @@ def count_entity_relation_set(triplets, triplet_type='hrt'):
 
 
 def write_triplets(file_path, triplets, id2entity, id2relation):
+    """按路径读取文件，并转化为对应id形式三元组
+
+    Args:
+        file_path (str): 具体文件路径
+        entity2id (dict): entity到id映射字典
+        relation2id (dict): relation到id映射字典
+
+    Returns:
+        triplets(list): 已转化为对应id的知识图谱三元组list
+    """
 
     with open(file_path, 'w') as f:
         for triplet in triplets:

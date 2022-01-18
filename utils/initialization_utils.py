@@ -19,7 +19,7 @@ def initialize_experiment(params, file_name):
         os.makedirs(params.exp_dir)
 
     if file_name == 'test_auc.py':
-        params.test_exp_dir = os.path.join(params.exp_dir, f"test_{params.dataset}")
+        params.test_exp_dir = os.path.join(params.exp_dir, f"test_{params.dataset}_{params.constrained_neg_prob}")
         if not os.path.exists(params.test_exp_dir):
             os.makedirs(params.test_exp_dir)
         file_handler = logging.FileHandler(os.path.join(params.test_exp_dir, f"test.log"))

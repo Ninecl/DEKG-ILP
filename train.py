@@ -4,11 +4,11 @@ import logging
 import torch
 from scipy.sparse import SparseEfficiencyWarning
 
-from dataset_process.datasets import Dataset, generate_subgraph_datasets
+from subgraph_extraction.datasets import SubgraphDataset, generate_subgraph_datasets
 from utils.initialization_utils import initialize_experiment, initialize_model
 from utils.graph_utils import collate_dgl, move_batch_to_device_dgl
 
-from model.network import DEKG_ILP as model
+from model.dgl.graph_classifier import GraphClassifier as dgl_model
 
 from managers.evaluator import Evaluator
 from managers.trainer import Trainer
@@ -25,14 +25,16 @@ def main(params):
     if not os.path.isdir(params.db_path):
         generate_subgraph_datasets(params)
 
-    train = Dataset(params.db_path, 'train_pos', 'train_neg', params.file_paths,
-                    add_traspose_rels=params.add_traspose_rels,
-                    num_neg_samples_per_link=params.num_neg_samples_per_link,
-                    file_name=params.train_file, params=params)
-    valid = Dataset(params.db_path, 'valid_pos', 'valid_neg', params.file_paths,
-                    add_traspose_rels=params.add_traspose_rels,
-                    num_neg_samples_per_link=params.num_neg_samples_per_link,
-                    file_name=params.valid_file, params=params)
+    train = SubgraphDataset(params.db_path, 'train_pos', 'train_neg', params.file_paths,
+                            add_traspose_rels=params.add_traspose_rels,
+                            num_neg_samples_per_link=params.num_neg_samples_per_link,
+                            use_kge_embeddings=params.use_kge_embeddings, dataset=params.dataset,
+                            kge_model=params.kge_model, file_name=params.train_file, params=params)
+    valid = SubgraphDataset(params.db_path, 'valid_pos', 'valid_neg', params.file_paths,
+                            add_traspose_rels=params.add_traspose_rels,
+                            num_neg_samples_per_link=params.num_neg_samples_per_link,
+                            use_kge_embeddings=params.use_kge_embeddings, dataset=params.dataset,
+                            kge_model=params.kge_model, file_name=params.valid_file, params=params)
 
     params.num_rels = train.num_rels
     params.aug_num_rels = train.aug_num_rels * 2
@@ -41,7 +43,7 @@ def main(params):
     # Log the max label value to save it in the model. This will be used to cap the labels generated on test set.
     params.max_label_value = train.max_n_label
 
-    graph_classifier = initialize_model(params, model, params.load_model)
+    graph_classifier = initialize_model(params, dgl_model, params.load_model)
 
     logging.info(f"Device: {params.device}")
     logging.info(f"Input dim : {params.inp_dim}, # Relations : {params.num_rels}, # Augmented relations : {params.aug_num_rels}")
@@ -106,6 +108,14 @@ if __name__ == '__main__':
                         help="Enclosing subgraph hop number")
     parser.add_argument("--max_nodes_per_hop", "-max_h", type=int, default=None,
                         help="if > 0, upper bound the # nodes per hop by subsampling")
+    parser.add_argument("--use_kge_embeddings", "-kge", type=bool, default=False,
+                        help='whether to use pretrained KGE embeddings')
+    parser.add_argument("--kge_model", type=str, default="TransE",
+                        help="Which KGE model to load entity embeddings from")
+    parser.add_argument('--model_type', '-m', type=str, choices=['ssp', 'dgl'], default='dgl',
+                        help='what format to store subgraphs in for model')
+    parser.add_argument('--constrained_neg_prob', '-cn', type=float, default=0.0,
+                        help='with what probability to sample constrained heads/tails while neg sampling')
     parser.add_argument("--batch_size", type=int, default=16,
                         help="Batch size")
     parser.add_argument("--num_neg_samples_per_link", '-neg', type=int, default=1,
